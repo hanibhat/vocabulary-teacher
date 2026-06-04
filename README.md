@@ -1,39 +1,115 @@
 # Vocabulary Teacher
 
-A small browser app for loading vocabulary from a local `.txt` file and practicing random word sets.
+Vocabulary Teacher is a small vocabulary practice app with a FastAPI backend and a static Alpine.js frontend. The backend fetches a published Google Doc, parses the html into JSON, and exposes them through one endpoint. The frontend loads that endpoint, caches usable vocabulary in `localStorage` until midnight, and gives learners a simple German UI for category-based practice.
 
-## What It Does
+## Features
 
-- Loads a user-selected `.txt` vocabulary file.
-- Parses source phrases, translations, and optional examples.
-- Groups entries by category.
-- Stores successfully parsed vocabulary in `localStorage` so it is restored when the app is opened again.
-- Lets you choose a random number of entries to study.
-- Supports filtering across source text, translation, examples, and categories.
+- Organizes words by category so users can study one topic at a time or review everything together.
+- Lets users instantly filter across words, translations, examples, and categories.
+- Creates random practice sets from all words or from a selected category.
 
-## File Format
+## How It Works
 
-By default:
+- The backend fetches vocabulary source HTML from `DOC_URL`.
+- Parsed vocabulary is served from a single `GET /vocabulary` endpoint.
+- The frontend caches non-empty API responses in `localStorage` until the next midnight.
+- Empty responses are not cached, so temporary source or parsing issues do not poison the browser cache.
 
-- Category lines start with `#`.
-- Columns are separated by four spaces.
-- Column 1 is the source phrase.
-- Column 2 is the translation.
-- Column 3 is optional example text.
-
-Example:
+## Project Shape
 
 ```text
-# Random
-Schrecklich    terrible, awful    Das ist schrecklich.
-Vorzüglich    excellent
-
-# Verben
-geben    to give    Ich gebe dir das Buch.
+server/main.py                 FastAPI app, CORS, and route lockdown
+server/routes/vocabulary.py    /vocabulary route and API error mapping
+server/services/vocabulary.py  HTML fetching and vocabulary parsing
+server/requirements.txt        Backend dependencies
+server/tests/                  Backend parser tests
+index.html              Static German frontend
+index.js                Frontend state, caching, filtering, and shuffle logic
 ```
 
-The category prefix and column separator can be changed from the app settings menu.
+## Expected Source HTML
 
-## Running
+The parser expects the Google Doc to have a table like this:
 
-Open `index.html` in a browser, or host the folder with any static web server.
+![table](images/table.jpg)
+
+```html
+<table>
+  <thead>
+    <tr>
+      <td>
+        <h2><span>Verben mit Dativ und Akkusativ</span></h2>
+      </td>
+    </tr>
+  </thead>
+  <tbody></tbody>
+  <tbody>
+    <tr>
+      <td>
+        <p><span>German</span></p>
+      </td>
+      <td>
+        <p><span>English</span></p>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <p><span>abgewöhnen</span></p>
+      </td>
+      <td>
+        <p><span>to break someone of a habit</span></p>
+      </td>
+    </tr>
+  </tbody>
+</table>
+```
+
+## Configuration
+
+Create `server/.env` from `server/.env.example`:
+
+```text
+DOC_URL=https://example.com/vocabulary.html
+CORS_ALLOW_ORIGINS=http://localhost:8000,http://127.0.0.1:8000,null
+```
+
+`CORS_ALLOW_ORIGINS` is a comma-separated allowlist. The default includes `null` so the app can be opened directly from `index.html` during local development.
+
+## Running Locally
+
+```powershell
+cd server
+```
+
+Create and activate a virtual environment:
+
+```powershell
+python -m venv venv
+.\venv\Scripts\activate
+```
+
+Install dependencies:
+
+```powershell
+pip install -r requirements.txt
+```
+
+Run the API from the project root:
+
+```powershell
+uvicorn main:app --host 127.0.0.1 --port 5000 --reload
+```
+
+Open `index.html` in a browser. The frontend calls:
+
+```text
+http://localhost:5000/vocabulary
+```
+
+## Tests
+
+Run the parser tests under `server` with:
+
+```powershell
+pytest
+```

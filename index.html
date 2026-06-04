@@ -1,188 +1,172 @@
 <!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Vocabulary Teacher</title>
-  <style>[x-cloak] { display: none !important; }</style>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="app.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-</head>
-<body class="min-h-screen bg-zinc-950 text-zinc-100">
-  <main
-    x-data="vocabularyApp()"
-    class="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8"
-  >
-    <header class="flex flex-col gap-1">
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 class="text-2xl font-semibold tracking-normal">Vocabulary Teacher</h1>
-          <p class="text-sm text-zinc-400" x-text="sourceLabel"></p>
-        </div>
-        <button
-          type="button"
-          class="inline-flex min-h-10 items-center justify-center rounded-md border border-zinc-700 px-3 text-sm font-medium text-zinc-200 transition hover:border-zinc-500 hover:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-teal-400/20"
-          @click="settingsOpen = true"
-        >
-          Settings
-        </button>
-      </div>
-    </header>
-
-    <section x-show="error" x-cloak class="rounded-lg border border-red-500/40 bg-red-950/60 p-4 text-sm text-red-100">
-      <p x-text="error"></p>
-    </section>
-
-    <form
-      x-show="allEntries.length"
-      x-cloak
-      class="flex flex-col gap-3 rounded-lg border border-zinc-800 bg-zinc-900 p-4 shadow-lg shadow-black/20 sm:flex-row sm:items-end"
-      @submit.prevent="chooseRandomEntries"
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Vokabeltrainer</title>
+    <style>
+      [x-cloak] {
+        display: none !important;
+      }
+    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="index.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  </head>
+  <body class="min-h-screen bg-zinc-950 text-zinc-100">
+    <main
+      x-data="vocabularyApp()"
+      class="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8"
     >
-      <div class="flex-1">
-        <label class="mb-1 block text-sm font-medium text-zinc-300" for="random-count">Number of words</label>
-        <input
-          id="random-count"
-          type="number"
-          min="1"
-          :max="allEntries.length"
-          x-model.number="randomCount"
-          class="min-h-11 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-500 focus:border-teal-400 focus:ring-2 focus:ring-teal-400/20"
-        >
-      </div>
-      <button
-        type="submit"
-        class="inline-flex min-h-11 items-center justify-center rounded-md bg-teal-500 px-4 text-sm font-medium text-zinc-950 transition hover:bg-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-300/40"
+      <header class="flex flex-col gap-1">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 class="text-2xl font-semibold tracking-normal">Vokabeltrainer</h1>
+          </div>
+        </div>
+      </header>
+
+      <section
+        x-show="error"
+        x-cloak
+        class="rounded-lg border border-red-500/40 bg-red-950/60 p-4 text-sm text-red-100"
       >
-        Choose random words
-      </button>
-    </form>
+        <p x-text="error"></p>
+      </section>
 
-    <section x-show="entries.length" x-cloak class="overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900 shadow-lg shadow-black/20">
-      <div class="flex flex-col gap-2 border-b border-zinc-800 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <form
+        x-show="allEntries.length"
+        x-cloak
+        class="grid gap-3 rounded-lg border border-zinc-800 bg-zinc-900 p-4 shadow-lg shadow-black/20 md:grid-cols-[minmax(0,1.3fr)_minmax(8rem,0.7fr)_auto_auto]"
+        @submit.prevent="chooseRandomEntries"
+      >
         <div>
-          <h2 class="text-base font-semibold">Entries</h2>
-          <p class="text-sm text-zinc-400">
-            <span x-text="entries.length"></span>
-            <span x-text="entries.length === 1 ? 'row shown' : 'rows shown'"></span>
-            <span x-show="allEntries.length !== entries.length">
-              from <span x-text="allEntries.length"></span> loaded
-            </span>
-          </p>
-        </div>
-        <input
-          type="search"
-          x-model.trim="query"
-          placeholder="Filter"
-          class="min-h-10 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-500 focus:border-teal-400 focus:ring-2 focus:ring-teal-400/20 sm:w-64"
-        >
-      </div>
-
-      <template x-for="category in groupedEntries" :key="category.id">
-        <div class="border-t border-zinc-800">
-          <div class="flex items-center justify-between gap-3 bg-zinc-800 px-4 py-2">
-            <h3 class="text-sm font-semibold text-zinc-100" x-text="category.name"></h3>
-            <span class="text-xs text-zinc-400">
-              <span x-text="category.entries.length"></span>
-              <span x-text="category.entries.length === 1 ? 'entry' : 'entries'"></span>
-            </span>
-          </div>
-
-          <div class="grid grid-cols-1 divide-y divide-zinc-800 sm:grid-cols-2 sm:divide-x sm:divide-y-0">
-            <div class="bg-zinc-950 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">Source</div>
-            <div class="hidden bg-zinc-950 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-400 sm:block">Translation</div>
-          </div>
-
-          <template x-for="entry in category.entries" :key="entry.id">
-            <article class="grid grid-cols-1 border-t border-zinc-800 sm:grid-cols-2">
-              <div class="px-4 py-3 text-sm font-medium text-zinc-50" x-text="entry.source"></div>
-              <div class="px-4 pb-3 text-sm text-zinc-300 sm:px-4 sm:py-3">
-                <p x-text="entry.translation"></p>
-                <p x-show="entry.example" x-cloak class="mt-2 text-xs leading-5 text-zinc-500" x-text="entry.example"></p>
-              </div>
-            </article>
-          </template>
-        </div>
-      </template>
-
-      <div x-show="!filteredEntries.length" x-cloak class="border-t border-zinc-800 p-8 text-center text-sm text-zinc-400">
-        No entries match that filter.
-      </div>
-    </section>
-
-    <section x-show="loading" x-cloak class="flex flex-1 items-center justify-center rounded-lg border border-dashed border-zinc-700 bg-zinc-900 p-8 text-center text-sm text-zinc-400">
-      Loading vocabulary...
-    </section>
-
-    <section x-show="!entries.length && !loading && !error" class="flex flex-1 items-center justify-center rounded-lg border border-dashed border-zinc-700 bg-zinc-900 p-8 text-center text-sm text-zinc-400">
-      No vocabulary entries loaded.
-    </section>
-
-    <div
-      x-show="settingsOpen"
-      x-cloak
-      class="fixed inset-0 z-40 bg-black/60"
-      @click="settingsOpen = false"
-    ></div>
-
-    <aside
-      x-show="settingsOpen"
-      x-cloak
-      class="fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col border-l border-zinc-800 bg-zinc-950 shadow-2xl shadow-black/40"
-      @keydown.escape.window="settingsOpen = false"
-    >
-      <div class="flex items-center justify-between border-b border-zinc-800 p-4">
-        <div>
-          <h2 class="text-base font-semibold">Settings</h2>
-          <p class="text-sm text-zinc-400">Load a file and adjust parsing.</p>
-        </div>
-        <button
-          type="button"
-          class="inline-flex min-h-10 min-w-10 items-center justify-center rounded-md border border-zinc-700 text-sm font-medium text-zinc-200 transition hover:border-zinc-500 hover:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-teal-400/20"
-          @click="settingsOpen = false"
-        >
-          X
-        </button>
-      </div>
-
-      <form class="flex flex-1 flex-col gap-4 overflow-y-auto p-4" @submit.prevent="saveSettings(); settingsOpen = false">
-        <div>
-          <label class="mb-1 block text-sm font-medium text-zinc-300" for="file-input">Vocabulary file</label>
-          <input
-            id="file-input"
-            type="file"
-            accept=".txt,text/plain"
-            class="block min-h-11 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 file:mr-3 file:rounded-md file:border-0 file:bg-teal-500 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-zinc-950 hover:file:bg-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-400/20"
-            @change="loadSelectedFile"
+          <label class="mb-1 block text-sm font-medium text-zinc-300" for="category-select">Kategorie</label>
+          <select
+            id="category-select"
+            x-model="selectedCategory"
+            @change="selectCategory"
+            class="min-h-11 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 text-sm text-zinc-100 outline-none transition focus:border-teal-400 focus:ring-2 focus:ring-teal-400/20"
           >
+            <option value="__all__">Alle Kategorien</option>
+            <template x-for="category in allCategories" :key="category.id">
+              <option :value="category.name" x-text="category.name"></option>
+            </template>
+          </select>
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium text-zinc-300" for="category-prefix">Category prefix</label>
+          <label class="mb-1 block text-sm font-medium text-zinc-300" for="random-count">Anzahl</label>
           <input
-            id="category-prefix"
-            type="text"
-            x-model="categoryPrefix"
+            id="random-count"
+            type="number"
+            min="1"
+            :max="availableEntryCount"
+            x-model.number="randomCount"
             class="min-h-11 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-500 focus:border-teal-400 focus:ring-2 focus:ring-teal-400/20"
-          >
-        </div>
-        <div>
-          <label class="mb-1 block text-sm font-medium text-zinc-300" for="column-separator">Column separator</label>
-          <input
-            id="column-separator"
-            type="text"
-            x-model="columnSeparator"
-            class="min-h-11 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-500 focus:border-teal-400 focus:ring-2 focus:ring-teal-400/20"
-          >
+          />
         </div>
         <button
           type="submit"
-          class="mt-auto inline-flex min-h-11 items-center justify-center rounded-md bg-teal-500 px-4 text-sm font-medium text-zinc-950 transition hover:bg-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-300/40"
+          class="inline-flex min-h-11 items-center justify-center self-end rounded-md bg-teal-500 px-4 text-sm font-medium text-zinc-950 transition hover:bg-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-300/40"
         >
-          Apply settings
+          Zufällig auswählen
+        </button>
+        <button
+          type="button"
+          x-show="hasActiveShuffle"
+          x-cloak
+          class="inline-flex min-h-11 items-center justify-center self-end rounded-md border border-zinc-700 px-4 text-sm font-medium text-zinc-200 transition hover:border-zinc-500 hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-teal-400/20"
+          @click="resetEntries"
+        >
+          Zurücksetzen
         </button>
       </form>
-    </aside>
-  </main>
-</body>
+
+      <section
+        x-show="entries.length"
+        x-cloak
+        class="overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900 shadow-lg shadow-black/20"
+      >
+        <div
+          class="flex flex-col gap-2 border-b border-zinc-800 p-4 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div>
+            <h2 class="text-base font-semibold">Vokabeln</h2>
+            <p class="text-sm text-zinc-400">
+              <span x-text="filteredEntries.length"></span>
+              <span x-text="filteredEntries.length === 1 ? 'Eintrag sichtbar' : 'Einträge sichtbar'"></span>
+              <span>von <span x-text="availableEntryCount"></span> verfügbar</span>
+            </p>
+          </div>
+          <input
+            type="search"
+            x-model.trim="query"
+            placeholder="Filtern"
+            class="min-h-10 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-500 focus:border-teal-400 focus:ring-2 focus:ring-teal-400/20 sm:w-64"
+          />
+        </div>
+
+        <template x-for="category in groupedEntries" :key="category.id">
+          <div class="border-t border-zinc-800">
+            <div class="flex items-center justify-between gap-3 bg-zinc-800 px-4 py-2">
+              <h3 class="text-sm font-semibold text-zinc-100" x-text="category.name"></h3>
+              <span class="text-xs text-zinc-400">
+                <span x-text="category.entries.length"></span>
+                <span x-text="category.entries.length === 1 ? 'Eintrag' : 'Einträge'"></span>
+              </span>
+            </div>
+
+            <div class="grid grid-cols-1 divide-y divide-zinc-800 sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+              <div class="bg-zinc-950 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                Deutsch
+              </div>
+              <div
+                class="hidden bg-zinc-950 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-400 sm:block"
+              >
+                Übersetzung
+              </div>
+            </div>
+
+            <template x-for="entry in category.entries" :key="entry.id">
+              <article class="grid grid-cols-1 border-t border-zinc-800 sm:grid-cols-2">
+                <div class="px-4 py-3 text-sm font-medium text-zinc-50" x-text="entry.source"></div>
+                <div class="px-4 pb-3 text-sm text-zinc-300 sm:px-4 sm:py-3">
+                  <p x-text="entry.translation"></p>
+                  <p
+                    x-show="entry.sourceExample"
+                    x-cloak
+                    class="mt-2 text-xs leading-5 text-zinc-500"
+                    x-text="entry.sourceExample"
+                  ></p>
+                </div>
+              </article>
+            </template>
+          </div>
+        </template>
+
+        <div
+          x-show="!filteredEntries.length"
+          x-cloak
+          class="border-t border-zinc-800 p-8 text-center text-sm text-zinc-400"
+        >
+          Keine Einträge passen zu diesem Filter.
+        </div>
+      </section>
+
+      <section
+        x-show="loading"
+        x-cloak
+        class="flex flex-1 items-center justify-center rounded-lg border border-dashed border-zinc-700 bg-zinc-900 p-8 text-center text-sm text-zinc-400"
+      >
+        Vokabeln werden geladen...
+      </section>
+
+      <section
+        x-show="!entries.length && !loading && !error"
+        class="flex flex-1 items-center justify-center rounded-lg border border-dashed border-zinc-700 bg-zinc-900 p-8 text-center text-sm text-zinc-400"
+      >
+        Keine Vokabeln geladen.
+      </section>
+    </main>
+  </body>
 </html>
