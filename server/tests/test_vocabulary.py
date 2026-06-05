@@ -13,6 +13,7 @@ def test_parse_vocabulary_tables_extracts_categories_and_entries():
           <td><p><span>Hallo</span></p></td>
           <td><p><span>Hello</span></p></td>
           <td><p><span>Hallo Welt</span></p></td>
+          <td><p><span>Hello world</span></p></td>
         </tr>
         <tr>
           <td><p><span>Tschuess</span></p></td>
@@ -28,11 +29,13 @@ def test_parse_vocabulary_tables_extracts_categories_and_entries():
                 "source": "Hallo",
                 "translation": "Hello",
                 "sourceExample": "Hallo Welt",
+                "translationExample": "Hello world",
             },
             {
                 "source": "Tschuess",
                 "translation": "Bye",
                 "sourceExample": None,
+                "translationExample": None,
             },
         ]
     }

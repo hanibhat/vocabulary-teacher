@@ -57,6 +57,7 @@ def parse_vocabulary_tables(html):
                     "source": cells[0],
                     "translation": cells[1],
                     "sourceExample": cells[2] if len(cells) > 2 else None,
+                    "translationExample": cells[3] if len(cells) > 3 else None,
                 }
             )
 

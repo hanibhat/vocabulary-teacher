@@ -14,6 +14,7 @@ Vocabulary Teacher is a small vocabulary practice app with a FastAPI backend and
 - Parsed vocabulary is served from a single `GET /vocabulary` endpoint.
 - The frontend caches non-empty API responses in `localStorage` until the next midnight.
 - Empty responses are not cached, so temporary source or parsing issues do not poison the browser cache.
+- The app includes a privacy policy page and does not use analytics, advertising cookies or tracking cookies.
 
 ## Project Shape
 
@@ -31,7 +32,7 @@ index.js                Frontend state, caching, filtering, and shuffle logic
 
 The parser expects the Google Doc to have a table like this:
 
-![table](images/table.jpg)
+![table](assets/images/table.jpg)
 
 ```html
 <table>

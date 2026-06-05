@@ -9,6 +9,7 @@ function vocabularyApp() {
     selectedCategory: ALL_CATEGORIES,
     loading: false,
     error: '',
+    settingsOpen: false,
     hasActiveShuffle: false,
     allCategories: [],
     allEntries: [],
@@ -34,40 +35,19 @@ function vocabularyApp() {
       }
 
       return this.entries.filter((entry) => {
-        return (
-          this.normalizeText(entry.source).includes(needle) ||
-          this.normalizeText(entry.translation).includes(needle) ||
-          this.normalizeText(entry.sourceExample).includes(needle) ||
-          this.normalizeText(entry.category).includes(needle)
-        )
+        return this.normalizeText(entry.source).includes(needle)
       })
-    },
-
-    get groupedEntries() {
-      const entriesByCategory = this.filteredEntries.reduce((groups, entry) => {
-        groups[entry.category] = groups[entry.category] || []
-        groups[entry.category].push(entry)
-        return groups
-      }, {})
-
-      return this.allCategories
-        .map((category) => ({
-          id: category.id,
-          name: category.name,
-          entries: entriesByCategory[category.name] || [],
-        }))
-        .filter((category) => category.entries.length)
     },
 
     get availableEntryCount() {
       return this.categoryEntries.length
     },
 
-    async loadVocabulary() {
+    async loadVocabulary({ bypassCache = false } = {}) {
       this.error = ''
       this.loading = true
 
-      const cachedVocabulary = this.getCachedVocabulary()
+      const cachedVocabulary = bypassCache ? null : this.getCachedVocabulary()
       if (cachedVocabulary) {
         this.applyVocabulary(cachedVocabulary.data)
         this.loading = false
@@ -94,6 +74,11 @@ function vocabularyApp() {
       } finally {
         this.loading = false
       }
+    },
+
+    refreshVocabulary() {
+      localStorage.removeItem(VOCABULARY_CACHE_STORAGE_KEY)
+      return this.loadVocabulary({ bypassCache: true })
     },
 
     getCachedVocabulary() {
@@ -154,6 +139,7 @@ function vocabularyApp() {
             source: entry.source || '',
             translation: entry.translation || '',
             sourceExample: entry.sourceExample || '',
+            translationExample: entry.translationExample || '',
           })),
         }
       })
