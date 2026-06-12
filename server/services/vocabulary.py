@@ -1,10 +1,21 @@
-from urllib.error import HTTPError, URLError
-from urllib.parse import urlparse
-from urllib.request import Request, urlopen
+import json
+import logging
 
-from pyquery import PyQuery
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 
 from config import config
+
+
+logger = logging.getLogger(__name__)
+
+SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+VALUE_RANGE = "A:D"
+
+# Cached service instance to avoid rebuilding the HTTP transport
+# and re-parsing the discovery document on every request.
+_sheets_service = None
 
 
 class VocabularyConfigError(RuntimeError):
@@ -15,58 +26,122 @@ class VocabularyFetchError(RuntimeError):
     pass
 
 
-def get_html():
+def get_service_account_credentials():
     try:
-        source_url = config.doc_url
+        service_account_json = config.google_service_account_json
     except RuntimeError as error:
         raise VocabularyConfigError(str(error)) from error
-
-    parsed_url = urlparse(source_url)
-    if parsed_url.scheme not in {"http", "https"}:
-        raise VocabularyConfigError(f"{config.doc_url_env} must be an http or https URL")
-
-    request = Request(source_url)
-
     try:
-        with urlopen(request, timeout=config.fetch_timeout_seconds) as response:
-            return response.read().decode(response.headers.get_content_charset() or "utf-8")
-    except HTTPError as error:
-        raise VocabularyFetchError(f"Failed to fetch vocabulary page: HTTP {error.code}") from error
-    except URLError as error:
-        raise VocabularyFetchError(f"Failed to fetch vocabulary page: {error.reason}") from error
+        service_account_info = json.loads(service_account_json)
+    except json.JSONDecodeError as error:
+        raise VocabularyConfigError(
+            f"{config.google_service_account_json_env} must contain valid service account JSON"
+        ) from error
+    return service_account.Credentials.from_service_account_info(
+        service_account_info,
+        scopes=SCOPES,
+    )
 
 
-def parse_vocabulary_tables(html):
-    page = PyQuery(html)
-    vocabulary = {}
+def build_sheets_service():
+    global _sheets_service
+    if _sheets_service is not None:
+        return _sheets_service
+    logger.info("Building Google Sheets API service")
+    credentials = get_service_account_credentials()
+    _sheets_service = build("sheets", "v4", credentials=credentials, cache_discovery=False)
+    return _sheets_service
 
-    for table in page("table").items():
-        category = table("thead tr td h2").eq(0).text().strip()
-        if not category:
-            continue
 
-        entries = []
-        for i, row in enumerate(table("tr").items()):
-            # skip category row and header row
-            if i <= 1:
-                continue
-            cells = [cell("p span").text().strip() for cell in row("td").items()]
+def get_sheet_names(service, spreadsheet_id):
+    try:
+        spreadsheet = (
+            service.spreadsheets()
+            .get(spreadsheetId=spreadsheet_id, fields="sheets.properties.title")
+            .execute()
+        )
+    except HttpError as error:
+        raise VocabularyFetchError(f"Failed to read spreadsheet metadata: {error.reason}") from error
+    sheet_names = [
+        sheet["properties"]["title"]
+        for sheet in spreadsheet.get("sheets", [])
+        if sheet.get("properties", {}).get("title")
+    ]
+    if not sheet_names:
+        raise VocabularyFetchError("Spreadsheet does not contain any sheets")
+    return sheet_names
 
-            entries.append(
-                {
-                    "source": cells[0],
-                    "translation": cells[1],
-                    "sourceExample": cells[2] if len(cells) > 2 else None,
-                    "translationExample": cells[3] if len(cells) > 3 else None,
-                }
+
+def quote_sheet_name(sheet_name):
+    escaped_sheet_name = sheet_name.replace("'", "''")
+    return f"'{escaped_sheet_name}'"
+
+
+def get_sheet_values(service, spreadsheet_id, sheet_name):
+    try:
+        result = (
+            service.spreadsheets()
+            .values()
+            .get(
+                spreadsheetId=spreadsheet_id,
+                range=f"{quote_sheet_name(sheet_name)}!{VALUE_RANGE}",
+                valueRenderOption="FORMATTED_VALUE",
             )
+            .execute()
+        )
+    except HttpError as error:
+        raise VocabularyFetchError(f"Failed to read sheet '{sheet_name}': {error.reason}") from error
+    return result.get("values", [])
 
-        if len(entries) > 0:
-            vocabulary[category] = entries
 
+def normalize_cell(value):
+    return str(value or "").strip()
+
+
+def normalize_row(row):
+    return [normalize_cell(row[index]) if index < len(row) else "" for index in range(4)]
+
+
+def has_required_cells(cells):
+    return bool(cells[0] and cells[1])
+
+
+def parse_sheet_rows(rows):
+    entries = []
+    for i, row in enumerate(rows):
+        # Skip the first row, which is expected to be a header row.
+        if i == 0:
+            continue
+        cells = normalize_row(row)
+        if not has_required_cells(cells):
+            continue
+        entries.append(
+            {
+                "source": cells[0],
+                "translation": cells[1],
+                "sourceExample": cells[2] or None,
+                "translationExample": cells[3] or None,
+            }
+        )
+    return entries
+
+
+def fetch_vocabulary_from_sheets(service, spreadsheet_id, sheet_names):
+    vocabulary = {}
+    for sheet_name in sheet_names:
+        rows = get_sheet_values(service, spreadsheet_id, sheet_name)
+        entries = parse_sheet_rows(rows)
+        if entries:
+            vocabulary[sheet_name] = entries
     return vocabulary
 
 
 def make_vocabulary():
-    html = get_html()
-    return parse_vocabulary_tables(html)
+    service = build_sheets_service()
+    logger.info("Fetching vocabulary data")
+    spreadsheet_id = config.google_spreadsheet_id
+    sheet_names = config.google_sheet_names or get_sheet_names(service, spreadsheet_id)
+    logger.info("Fetching sheets: %s", sheet_names)
+    vocabulary = fetch_vocabulary_from_sheets(service, spreadsheet_id, sheet_names)
+    logger.info("Fetched %d vocabulary sheets", len(vocabulary))
+    return vocabulary

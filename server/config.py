@@ -12,19 +12,27 @@ load_dotenv(SERVER_DIR / ".env", override=True)
 
 
 class Config:
-    doc_url_env = "DOC_URL"
     cors_allow_origins_env = "CORS_ALLOW_ORIGINS"
-    fetch_timeout_seconds = 10
+    google_service_account_json_env = "GOOGLE_SERVICE_ACCOUNT_JSON"
+    google_sheet_names_env = "GOOGLE_SHEET_NAMES"
+    google_spreadsheet_id_env = "GOOGLE_SPREADSHEET_ID"
     default_cors_allow_origins = ["http://localhost:8000", "http://127.0.0.1:8000", "null"]
 
     @property
-    def doc_url(self):
-        return self.get_required_env(self.doc_url_env)
+    def google_spreadsheet_id(self):
+        return self.get_required_env(self.google_spreadsheet_id_env)
+
+    @property
+    def google_service_account_json(self):
+        return self.get_required_env(self.google_service_account_json_env)
+
+    @property
+    def google_sheet_names(self):
+        return self.get_csv_env(self.google_sheet_names_env, [])
 
     @property
     def cors_allow_origins(self):
         allowed = self.get_csv_env(self.cors_allow_origins_env, self.default_cors_allow_origins)
-        print(f"CORS allowed origins: {allowed}")
         return allowed
 
     def get_required_env(self, name):

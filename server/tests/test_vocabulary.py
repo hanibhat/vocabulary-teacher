@@ -1,53 +1,30 @@
-from server.services.vocabulary import parse_vocabulary_tables
+from services.vocabulary import parse_sheet_rows, quote_sheet_name
 
 
-def test_parse_vocabulary_tables_extracts_categories_and_entries():
-    html = """
-    <table>
-      <thead>
-        <tr><td><h2>Grundlagen</h2></td></tr>
-      </thead>
-      <tbody>
-        <tr><td><p><span>Header</span></p></td></tr>
-        <tr>
-          <td><p><span>Hallo</span></p></td>
-          <td><p><span>Hello</span></p></td>
-          <td><p><span>Hallo Welt</span></p></td>
-          <td><p><span>Hello world</span></p></td>
-        </tr>
-        <tr>
-          <td><p><span>Tschuess</span></p></td>
-          <td><p><span>Bye</span></p></td>
-        </tr>
-      </tbody>
-    </table>
-    """
+def test_parse_sheet_rows_extracts_entries_and_skips_header():
+    rows = [
+        ["Deutsch", "Englisch", "Beispiel Deutsch", "Beispiel Englisch"],
+        ["Hallo", "Hello", "Hallo Welt", "Hello world"],
+        ["Tschuess", "Bye"],
+        ["", "Missing source"],
+        ["Missing translation", ""],
+    ]
 
-    assert parse_vocabulary_tables(html) == {
-        "Grundlagen": [
-            {
-                "source": "Hallo",
-                "translation": "Hello",
-                "sourceExample": "Hallo Welt",
-                "translationExample": "Hello world",
-            },
-            {
-                "source": "Tschuess",
-                "translation": "Bye",
-                "sourceExample": None,
-                "translationExample": None,
-            },
-        ]
-    }
+    assert parse_sheet_rows(rows) == [
+        {
+            "source": "Hallo",
+            "translation": "Hello",
+            "sourceExample": "Hallo Welt",
+            "translationExample": "Hello world",
+        },
+        {
+            "source": "Tschuess",
+            "translation": "Bye",
+            "sourceExample": None,
+            "translationExample": None,
+        },
+    ]
 
 
-def test_parse_vocabulary_tables_ignores_tables_without_category():
-    html = """
-    <table>
-      <tbody>
-        <tr><td><p><span>Hallo</span></p></td><td><p><span>Hello</span></p></td></tr>
-      </tbody>
-    </table>
-    """
-
-    assert parse_vocabulary_tables(html) == {}
+def test_quote_sheet_name_escapes_single_quotes():
+    assert quote_sheet_name("Hani's Words") == "'Hani''s Words'"

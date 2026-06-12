@@ -4,3 +4,5 @@ venv/
 __pycache__/
 .pytest_cache/
 *.py[cod]
+server/*service-account*.json
+server/google-credentials*.json
