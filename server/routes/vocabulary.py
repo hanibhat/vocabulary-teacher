@@ -2,8 +2,11 @@ import logging
 
 from fastapi import APIRouter, HTTPException
 
-from services.vocabulary import VocabularyConfigError, VocabularyFetchError, make_vocabulary
-
+from services.vocabulary import (
+    VocabularyConfigError,
+    VocabularyFetchError,
+    make_vocabulary,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -19,3 +22,6 @@ def read_vocabulary():
     except VocabularyFetchError as error:
         logger.exception("Vocabulary fetch error: %s", error)
         raise HTTPException(status_code=502, detail=str(error)) from error
+    except Exception as error:
+        logger.exception("Unexpected vocabulary error: %s", error)
+        raise HTTPException(status_code=500, detail=str(error)) from error

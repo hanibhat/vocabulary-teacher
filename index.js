@@ -180,6 +180,7 @@ function vocabularyApp() {
       const availableEntries = this.categoryEntries
       this.entries = this.shuffleEntries(availableEntries).slice(0, Math.min(count, availableEntries.length))
       this.hasActiveShuffle = true
+      this.settingsOpen = false
     },
 
     resetEntries() {
