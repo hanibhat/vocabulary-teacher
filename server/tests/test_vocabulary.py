@@ -1,7 +1,7 @@
 from services.vocabulary import parse_sheet_rows, quote_sheet_name
 
 
-def test_parse_sheet_rows_extracts_entries_and_skips_header():
+def test_parse_sheet_rows_extracts_entries_using_header_columns():
     rows = [
         ["Deutsch", "Englisch", "Beispiel Deutsch", "Beispiel Englisch"],
         ["Hallo", "Hello", "Hallo Welt", "Hello world"],
@@ -12,16 +12,28 @@ def test_parse_sheet_rows_extracts_entries_and_skips_header():
 
     assert parse_sheet_rows(rows) == [
         {
-            "source": "Hallo",
-            "translation": "Hello",
-            "sourceExample": "Hallo Welt",
-            "translationExample": "Hello world",
+            "deutsch": "Hallo",
+            "englisch": "Hello",
+            "beispiel deutsch": "Hallo Welt",
+            "beispiel englisch": "Hello world",
         },
         {
-            "source": "Tschuess",
-            "translation": "Bye",
-            "sourceExample": None,
-            "translationExample": None,
+            "deutsch": "Tschuess",
+            "englisch": "Bye",
+            "beispiel deutsch": "",
+            "beispiel englisch": "",
+        },
+        {
+            "deutsch": "",
+            "englisch": "Missing source",
+            "beispiel deutsch": "",
+            "beispiel englisch": "",
+        },
+        {
+            "deutsch": "Missing translation",
+            "englisch": "",
+            "beispiel deutsch": "",
+            "beispiel englisch": "",
         },
     ]
 

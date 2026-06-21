@@ -7,43 +7,38 @@ Vocabulary Teacher is a small vocabulary practice app with a FastAPI backend and
 - Organizes words by category so users can study one topic at a time or review everything together.
 - Lets users filter by source phrase.
 - Creates random practice sets from all words or from a selected category.
-- Lets users manually refresh content when the spreadsheet changes.
-- Includes a privacy policy page and does not use analytics, advertising cookies, or tracking cookies.
+- Lets users choose their translation language (Arabic, English) — persisted in `localStorage`.
+- Uses dynamic column headers: the spreadsheet can use any language or naming convention for columns.
+- Proactively refreshes vocabulary cache on a cron schedule via APScheduler.
 
 ## How It Works
 
 - The backend reads one or more sheet tabs from a Google Spreadsheet.
 - Each sheet tab becomes one vocabulary category.
 - Vocabulary is served from a single `GET /vocabulary` endpoint.
+- The backend caches vocabulary in memory and refreshes it on a cron schedule (`CACHE_CRON_SCHEDULE`) via APScheduler.
+- On server startup, vocabulary is fetched immediately so the cache is warm.
 - The frontend caches non-empty API responses in `localStorage` until the next midnight.
 - Empty responses are not cached, so temporary source or parsing issues do not poison the browser cache.
+- The frontend stores the user's chosen translation language in `localStorage` separately.
 
 ## Project Shape
 
 ```text
-server/main.py                 FastAPI app, CORS, and route lockdown
+server/main.py                 FastAPI app, CORS, route lockdown, scheduler, /healthz
 server/config.py               Environment configuration
 server/routes/vocabulary.py    /vocabulary route and API error mapping
-server/services/vocabulary.py  Google Sheets fetching and vocabulary shaping
+server/services/vocabulary.py  Google Sheets fetching, caching, vocabulary shaping
 server/requirements.txt        Backend dependencies
 server/tests/                  Backend parser tests
 index.html                     Static German frontend
-index.js                       Frontend state, caching, filtering, and shuffle logic
+index.js                       Frontend state, caching, filtering, shuffle logic, language selection
 privacy.html                   Privacy policy
 ```
 
 ## Expected Google Spreadsheet
 
-Create one sheet tab per category. Each sheet should use columns A-D:
-
-| Column | Meaning                       |
-| ------ | ----------------------------- |
-| A      | Source phrase                 |
-| B      | Translation                   |
-| C      | Source example, optional      |
-| D      | Translation example, optional |
-
-The first row can be a header row such as `Deutsch`, `Englisch`, `Beispiel Deutsch`, `Beispiel Englisch`; the backend skips it automatically.
+Create one sheet tab per category. The column range is configurable via `GOOGLE_SPREADSHEET_RANGE`. The **first row** must be a header row. Column names are detected dynamically:
 
 Share the spreadsheet with the service account email address, just like sharing it with a normal Google user. Read access is enough.
 
@@ -62,21 +57,29 @@ Create `server/.env` from `server/.env.example`:
 
 ```text
 CORS_ALLOW_ORIGINS=http://localhost:8000,http://127.0.0.1:8000,null
+CACHE_CRON_SCHEDULE=0 * * * *
 GOOGLE_SPREADSHEET_ID=your-google-spreadsheet-id
+GOOGLE_SPREADSHEET_RANGE=A:D
 GOOGLE_SERVICE_ACCOUNT_JSON={"type":"service_account","project_id":"..."}
 # Optional: leave empty to read every sheet tab in the spreadsheet.
 GOOGLE_SHEET_NAMES=
 ```
 
-`CORS_ALLOW_ORIGINS` is a comma-separated allowlist. The default includes `null` so the app can be opened directly from `index.html` during local development.
+| Variable                      | Required | Description                                                                |
+| ----------------------------- | -------- | -------------------------------------------------------------------------- |
+| `CORS_ALLOW_ORIGINS`          | No       | Comma-separated allowlist. Default includes `null` for local dev.          |
+| `CACHE_CRON_SCHEDULE`         | Yes      | Crontab expression for vocabulary refresh (e.g. `0 * * * *` = every hour). |
+| `GOOGLE_SPREADSHEET_ID`       | Yes      | The ID from the spreadsheet URL.                                           |
+| `GOOGLE_SPREADSHEET_RANGE`    | Yes      | Column range to read (e.g. `A:D` or `A:F`).                                |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | Yes      | Full JSON key. Never commit this.                                          |
+| `GOOGLE_SHEET_NAMES`          | No       | Comma-separated list of sheet tabs to read. Empty = read all tabs.         |
 
-`GOOGLE_SERVICE_ACCOUNT_JSON` should contain the full service account JSON key. Keep it in environment variables or local `.env` files only; never commit it.
+## Endpoints
 
-`GOOGLE_SHEET_NAMES` is optional. If it is empty, the backend reads every sheet tab. If set, use a comma-separated list such as:
-
-```text
-GOOGLE_SHEET_NAMES=Basics,Verben,Redewendungen
-```
+| Method         | Path          | Description                                           |
+| -------------- | ------------- | ----------------------------------------------------- |
+| `GET`          | `/vocabulary` | Returns all vocabulary grouped by sheet name.         |
+| `GET` / `HEAD` | `/healthz`    | Returns `{}` with status 200. Used for health checks. |
 
 ## Running Locally
 

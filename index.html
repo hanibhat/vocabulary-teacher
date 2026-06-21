@@ -31,7 +31,6 @@
             alt="Vocabulary Teacher logo"
             class="h-12 w-12 rounded-md object-contain"
           />
-          <h1 class="text-2xl font-semibold tracking-normal">Vokabeltrainer</h1>
           <button
             type="button"
             class="inline-flex min-h-9 min-w-9 items-center justify-center rounded-md border border-zinc-700 text-sm text-zinc-300 transition hover:border-zinc-500 hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-teal-400/20 disabled:cursor-not-allowed disabled:opacity-60"
@@ -125,6 +124,22 @@
 
           <div class="grid gap-3">
             <div>
+              <label class="mb-1 block text-sm font-medium text-zinc-300" for="language-select"
+                >Übersetzungssprache</label
+              >
+              <select
+                id="language-select"
+                x-model="targetLanguage"
+                @change="setLanguage(targetLanguage)"
+                class="min-h-11 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 text-sm text-zinc-100 outline-none transition focus:border-teal-400 focus:ring-2 focus:ring-teal-400/20"
+              >
+                <template x-for="lang in allLanguages" :key="lang.code">
+                  <option :value="lang.code" x-text="lang.name"></option>
+                </template>
+              </select>
+            </div>
+
+            <div>
               <label class="mb-1 block text-sm font-medium text-zinc-300" for="category-select"
                 >Kategorie</label
               >
@@ -176,10 +191,28 @@
 
         <button
           type="button"
-          class="inline-flex min-h-14 items-center justify-center rounded-full bg-teal-500 px-5 text-sm font-semibold text-zinc-950 shadow-xl shadow-black/40 transition hover:bg-teal-400 focus:outline-none focus:ring-4 focus:ring-teal-300/30"
+          aria-label="Einstellungen"
+          class="inline-flex min-h-14 min-w-14 items-center justify-center rounded-full bg-teal-500 text-zinc-950 shadow-xl shadow-black/40 transition hover:bg-teal-400 focus:outline-none focus:ring-4 focus:ring-teal-300/30"
           @click="settingsOpen = !settingsOpen"
         >
-          Einstellungen
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="h-6 w-6"
+            aria-hidden="true"
+          >
+            <path
+              d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"
+            ></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
         </button>
       </div>
 

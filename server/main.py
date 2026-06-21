@@ -1,11 +1,15 @@
 import logging
 
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 
 from config import config
 from routes.vocabulary import router as vocabulary_router
+from services.vocabulary import make_vocabulary
 
 logger = logging.getLogger(__name__)
 
@@ -15,9 +19,25 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
+scheduler = AsyncIOScheduler()
+
+
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    make_vocabulary()
+    scheduler.add_job(
+        make_vocabulary,
+        trigger=CronTrigger.from_crontab(config.cache_cron_schedule),
+    )
+    scheduler.start()
+    yield
+    scheduler.shutdown()
+
+
 app = FastAPI(
     title="Vocabulary Teacher API",
     version="1.0.0",
+    lifespan=lifespan,
     docs_url=None,
     redoc_url=None,
     openapi_url=None,

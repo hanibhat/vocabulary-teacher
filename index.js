@@ -1,5 +1,6 @@
 const VOCABULARY_ENDPOINT = 'https://vocabulary-teacher.onrender.com/vocabulary'
 const VOCABULARY_CACHE_STORAGE_KEY = 'vocabularyCache'
+const LANGUAGE_CACHE_STORAGE_KEY = 'targetLanguage'
 const ALL_CATEGORIES = '__all__'
 
 function vocabularyApp() {
@@ -14,8 +15,14 @@ function vocabularyApp() {
     allCategories: [],
     allEntries: [],
     entries: [],
+    allLanguages: [
+      { code: 'en', name: 'English' },
+      { code: 'ar', name: 'العربية' },
+    ],
+    targetLanguage: 'en',
 
     init() {
+      this.loadLanguage()
       this.loadVocabulary()
     },
 
@@ -35,7 +42,7 @@ function vocabularyApp() {
       }
 
       return this.entries.filter((entry) => {
-        return this.normalizeText(entry.source).includes(needle)
+        return this.normalizeText(entry[sourceLanguage]).includes(needle)
       })
     },
 
@@ -43,15 +50,32 @@ function vocabularyApp() {
       return this.categoryEntries.length
     },
 
-    async loadVocabulary({ bypassCache = false } = {}) {
+    setLanguage(language) {
+      this.targetLanguage = language
+      localStorage.setItem(LANGUAGE_CACHE_STORAGE_KEY, language)
+      const cachedVocabulary = this.getCachedVocabulary()
+      if (cachedVocabulary) {
+        this.applyVocabulary(cachedVocabulary.data)
+      }
+    },
+
+    loadLanguage() {
+      this.targetLanguage = localStorage.getItem(LANGUAGE_CACHE_STORAGE_KEY) || 'en'
+    },
+
+    async loadVocabulary({ forceFetch = false } = {}) {
       this.error = ''
       this.loading = true
 
-      const cachedVocabulary = bypassCache ? null : this.getCachedVocabulary()
+      // Show cached data immediately if available, even if expired.
+      const cachedVocabulary = this.getCachedVocabulary({ allowExpired: true })
       if (cachedVocabulary) {
         this.applyVocabulary(cachedVocabulary.data)
-        this.loading = false
-        return
+        // If the cache is still fresh and we're not forcing, skip the fetch.
+        if (!forceFetch && !this.isCacheExpired(cachedVocabulary)) {
+          this.loading = false
+          return
+        }
       }
 
       try {
@@ -69,7 +93,11 @@ function vocabularyApp() {
           localStorage.removeItem(VOCABULARY_CACHE_STORAGE_KEY)
         }
       } catch (error) {
-        this.clearVocabulary()
+        // Keep the stale cache — don't clear it. Just show an error.
+        // If there was no cached data at all, show empty state.
+        if (!cachedVocabulary) {
+          this.clearVocabulary()
+        }
         this.error = `Vokabeln konnten nicht geladen werden. ${error.message}`
       } finally {
         this.loading = false
@@ -77,26 +105,30 @@ function vocabularyApp() {
     },
 
     refreshVocabulary() {
-      localStorage.removeItem(VOCABULARY_CACHE_STORAGE_KEY)
-      return this.loadVocabulary({ bypassCache: true })
+      return this.loadVocabulary({ forceFetch: true })
     },
 
-    getCachedVocabulary() {
-      const rawCache = localStorage.getItem(VOCABULARY_CACHE_STORAGE_KEY)
+    isCacheExpired(cache) {
+      if (!cache) return true
+      const expiresAt = Number(cache.expiresAt)
+      return !Number.isFinite(expiresAt) || Date.now() >= expiresAt
+    },
 
-      if (!rawCache) {
-        return null
-      }
+    getCachedVocabulary({ allowExpired = false } = {}) {
+      const rawCache = localStorage.getItem(VOCABULARY_CACHE_STORAGE_KEY)
+      if (!rawCache) return null
 
       try {
         const cache = JSON.parse(rawCache)
-        const expiresAt = Number(cache.expiresAt)
-
-        if (!cache.data || !Number.isFinite(expiresAt) || Date.now() >= expiresAt) {
+        if (!cache.data) {
           localStorage.removeItem(VOCABULARY_CACHE_STORAGE_KEY)
           return null
         }
-
+        // If expired and we're not allowing expired, purge and return null.
+        if (!allowExpired && this.isCacheExpired(cache)) {
+          localStorage.removeItem(VOCABULARY_CACHE_STORAGE_KEY)
+          return null
+        }
         return cache
       } catch (error) {
         localStorage.removeItem(VOCABULARY_CACHE_STORAGE_KEY)
@@ -133,14 +165,21 @@ function vocabularyApp() {
         return {
           id: this.createCategoryId(categoryIndex),
           name,
-          entries: (Array.isArray(entries) ? entries : []).map((entry, index) => ({
-            id: this.createEntryId(categoryIndex, index),
-            category: name,
-            source: entry.source || '',
-            translation: entry.translation || '',
-            sourceExample: entry.sourceExample || '',
-            translationExample: entry.translationExample || '',
-          })),
+          entries: (Array.isArray(entries) ? entries : []).map((entry, index) => {
+            const source = entry.source || entry.de || ''
+            const translation = entry.translation || entry[this.targetLanguage] || entry.en || ''
+            const sourceExample = entry.sourceExample || entry['example-de'] || ''
+            const translationExample =
+              entry.translationExample || entry[`example-${this.targetLanguage}`] || entry['example-en'] || ''
+            return {
+              id: this.createEntryId(categoryIndex, index),
+              category: name,
+              source,
+              sourceExample,
+              translation,
+              translationExample,
+            }
+          }),
         }
       })
 
