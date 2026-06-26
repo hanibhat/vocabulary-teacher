@@ -20,6 +20,7 @@ function vocabularyApp() {
       { code: 'ar', name: 'العربية' },
     ],
     targetLanguage: 'en',
+    displayMode: 'visible',
 
     init() {
       this.loadLanguage()
@@ -61,6 +62,18 @@ function vocabularyApp() {
 
     loadLanguage() {
       this.targetLanguage = localStorage.getItem(LANGUAGE_CACHE_STORAGE_KEY) || 'en'
+    },
+
+    loadDisplayMode() {
+      const saved = localStorage.getItem('displayMode')
+      if (saved === 'flip' || saved === 'visible') {
+        this.displayMode = saved
+      }
+    },
+
+    setDisplayMode(mode) {
+      this.displayMode = mode
+      localStorage.setItem('displayMode', mode)
     },
 
     async loadVocabulary({ forceFetch = false } = {}) {

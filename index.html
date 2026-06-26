@@ -8,6 +8,32 @@
       [x-cloak] {
         display: none !important;
       }
+
+      .card-perspective {
+        perspective: 1000px;
+      }
+
+      .flip-inner {
+        position: relative;
+        transition: transform 0.5s ease-in-out;
+        transform-style: preserve-3d;
+      }
+
+      .flip-inner.flipped {
+        transform: rotateY(180deg);
+      }
+
+      .flip-front,
+      .flip-back {
+        backface-visibility: hidden;
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+      }
+
+      .flip-back {
+        transform: rotateY(180deg);
+      }
     </style>
     <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png" />
     <link rel="android-chrome-192x192-icon" sizes="192x192" href="assets/android-chrome-192x192.png" />
@@ -167,6 +193,26 @@
                 class="min-h-11 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-500 focus:border-teal-400 focus:ring-2 focus:ring-teal-400/20"
               />
             </div>
+
+            <div>
+              <label class="mb-1 block text-sm font-medium text-zinc-300">Anzeigemodus</label>
+              <div class="flex overflow-hidden rounded-lg border border-zinc-700 bg-zinc-950" role="radiogroup">
+                <label class="flex-1 cursor-pointer">
+                  <input type="radio" name="displayMode" value="visible" x-model="displayMode" @change="setDisplayMode('visible')" class="sr-only" />
+                  <span
+                    class="block px-3 py-2.5 text-center text-sm font-medium transition"
+                    :class="displayMode === 'visible' ? 'bg-teal-500 text-zinc-950' : 'text-zinc-400 hover:text-zinc-200'"
+                  >Immer anzeigen</span>
+                </label>
+                <label class="flex-1 cursor-pointer">
+                  <input type="radio" name="displayMode" value="flip" x-model="displayMode" @change="setDisplayMode('flip')" class="sr-only" />
+                  <span
+                    class="block px-3 py-2.5 text-center text-sm font-medium transition"
+                    :class="displayMode === 'flip' ? 'bg-teal-500 text-zinc-950' : 'text-zinc-400 hover:text-zinc-200'"
+                  >Verdeckt</span>
+                </label>
+              </div>
+            </div>
           </div>
 
           <div class="mt-4 grid gap-2 sm:grid-cols-2">
@@ -236,37 +282,100 @@
         </div>
 
         <template x-for="entry in filteredEntries" :key="entry.id">
-          <article
-            class="min-h-56 rounded-lg border border-zinc-800 bg-zinc-900 p-5 shadow-lg shadow-black/20"
-          >
-            <div class="mb-8 flex items-center justify-between gap-3">
+          <div>
+            <!-- Flip mode: hidden translation, tap to reveal -->
+            <article
+              x-show="displayMode === 'flip'"
+              x-cloak
+              x-data="{ flipped: false }"
+              class="card-perspective min-h-56 rounded-lg border border-zinc-800 bg-zinc-900 shadow-lg shadow-black/20"
+              :class="{ 'cursor-pointer': displayMode === 'flip' }"
+            >
+              <div
+                class="flip-inner min-h-56"
+                :class="{ flipped }"
+                @click="flipped = !flipped"
+              >
+                <div class="flip-front flex flex-col p-5">
+                  <div class="mb-8 flex items-center justify-between gap-3">
+                    <p
+                      class="text-[10px] font-semibold uppercase tracking-wide text-teal-300"
+                      x-text="entry.category"
+                    ></p>
+                  </div>
+                  <div class="flex flex-1 flex-col items-center justify-center text-center">
+                    <h3
+                      class="text-3xl font-semibold leading-tight text-zinc-50 sm:text-4xl"
+                      x-text="entry.source"
+                    ></h3>
+                  </div>
+                  <p class="mt-auto text-center text-xs text-zinc-600">Zum Umdrehen tippen</p>
+                </div>
+                <div class="flip-back flex flex-col p-5">
+                  <div class="mb-8 flex items-center justify-between gap-3">
+                    <p
+                      class="text-[10px] font-semibold uppercase tracking-wide text-teal-300"
+                      x-text="entry.category"
+                    ></p>
+
+                  </div>
+                  <div class="flex flex-1 flex-col items-center justify-center text-center">
+                    <h3
+                      class="text-2xl font-semibold leading-tight text-teal-300 sm:text-3xl"
+                      x-text="entry.translation"
+                    ></h3>
+                  </div>
+                  <p
+                    x-show="entry.sourceExample"
+                    x-cloak
+                    class="mt-8 border-t border-zinc-800 pt-4 text-base leading-5 text-zinc-200"
+                    x-text="entry.sourceExample"
+                  ></p>
+                  <p
+                    x-show="entry.translationExample"
+                    x-cloak
+                    class="mt-2 text-sm leading-5 text-zinc-400"
+                    x-text="entry.translationExample"
+                  ></p>
+                </div>
+              </div>
+            </article>
+
+            <!-- Visible mode: always show all content -->
+            <article
+              x-show="displayMode === 'visible'"
+              x-cloak
+              class="min-h-56 rounded-lg border border-zinc-800 bg-zinc-900 p-5 shadow-lg shadow-black/20"
+            >
+              <div class="mb-8 flex items-center justify-between gap-3">
+                <p
+                  class="text-[10px] font-semibold uppercase tracking-wide text-teal-300"
+                  x-text="entry.category"
+                ></p>
+              </div>
+
+              <div class="flex min-h-28 flex-col items-center justify-center text-center">
+                <h3
+                  class="text-3xl font-semibold leading-tight text-zinc-50 sm:text-4xl"
+                  x-text="entry.source"
+                ></h3>
+                <p class="mt-3 text-base leading-6 text-zinc-400" x-text="entry.translation"></p>
+              </div>
+
               <p
-                class="text-[10px] font-semibold uppercase tracking-wide text-teal-300"
-                x-text="entry.category"
+                x-show="entry.sourceExample"
+                x-cloak
+                class="mt-8 border-t border-zinc-800 pt-4 text-base leading-5 text-zinc-200"
+                x-text="entry.sourceExample"
               ></p>
-            </div>
-
-            <div class="flex min-h-28 flex-col items-center justify-center text-center">
-              <h3
-                class="text-3xl font-semibold leading-tight text-zinc-50 sm:text-4xl"
-                x-text="entry.source"
-              ></h3>
-              <p class="mt-3 text-base leading-6 text-zinc-400" x-text="entry.translation"></p>
-            </div>
-
-            <p
-              x-show="entry.sourceExample"
-              x-cloak
-              class="mt-8 border-t border-zinc-800 pt-4 text-base leading-5 text-zinc-200"
-              x-text="entry.sourceExample"
-            ></p>
-            <p
-              x-show="entry.translationExample"
-              x-cloak
-              class="mt-2 text-sm leading-5 text-zinc-400"
-              x-text="entry.translationExample"
-            ></p>
-          </article>
+              <p
+                x-show="entry.translationExample"
+                x-cloak
+                class="mt-2 text-sm leading-5 text-zinc-400"
+                x-text="entry.translationExample"
+              ></p>
+            </article>
+          </div>
         </template>
 
         <div
