@@ -16,7 +16,12 @@ class Config:
     google_sheet_names_env = "GOOGLE_SHEET_NAMES"
     google_sheet_range_env = "GOOGLE_SPREADSHEET_RANGE"
     google_spreadsheet_id_env = "GOOGLE_SPREADSHEET_ID"
+    google_sheet_vocabulary_env = "GOOGLE_SHEET_VOCABULARY"
     cache_cron_schedule_env = "CACHE_CRON_SCHEDULE"
+    telegram_bot_token_env = "TELEGRAM_BOT_TOKEN"
+    telegram_webhook_url_env = "TELEGRAM_WEBHOOK_URL"
+    openrouter_api_key_env = "OPENROUTER_API_KEY"
+    openrouter_model_env = "OPENROUTER_MODEL"
     default_cors_allow_origins = [
         "http://localhost:8000",
         "http://127.0.0.1:8000",
@@ -38,6 +43,26 @@ class Config:
     @property
     def google_sheet_range(self):
         return self.get_required_env(self.google_sheet_range_env)
+
+    @property
+    def google_sheet_vocabulary(self):
+        return self.get_required_env(self.google_sheet_vocabulary_env)
+
+    @property
+    def telegram_bot_token(self):
+        return self.get_required_env(self.telegram_bot_token_env)
+
+    @property
+    def telegram_webhook_url(self):
+        return self.get_required_env(self.telegram_webhook_url_env)
+
+    @property
+    def openrouter_api_key(self):
+        return self.get_required_env(self.openrouter_api_key_env)
+
+    @property
+    def openrouter_model(self):
+        return os.getenv(self.openrouter_model_env, "google/gemini-2.5-flash")
 
     @property
     def cors_allow_origins(self):

@@ -9,7 +9,9 @@ from starlette.responses import JSONResponse
 
 from config import config
 from routes.vocabulary import router as vocabulary_router
+from routes.telegram import router as telegram_router
 from services.vocabulary import make_vocabulary
+from services.telegram_bot import set_webhook
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +27,7 @@ scheduler = AsyncIOScheduler()
 @asynccontextmanager
 async def lifespan(application: FastAPI):
     make_vocabulary()
+    await set_webhook()
     scheduler.add_job(
         make_vocabulary,
         trigger=CronTrigger.from_crontab(config.cache_cron_schedule),
@@ -45,10 +48,12 @@ app = FastAPI(
 
 
 @app.middleware("http")
-async def only_vocabulary_endpoint(request: Request, call_next):
+async def only_known_endpoints(request: Request, call_next):
     if request.url.path == "/vocabulary" and request.method in {"GET", "OPTIONS"}:
         return await call_next(request)
     if request.url.path == "/healthz" and request.method in {"GET", "HEAD"}:
+        return await call_next(request)
+    if request.url.path == "/telegram/webhook" and request.method == "POST":
         return await call_next(request)
     return JSONResponse({"detail": "Not found"}, status_code=404)
 
@@ -56,15 +61,15 @@ async def only_vocabulary_endpoint(request: Request, call_next):
 @app.get("/healthz")
 @app.head("/healthz")
 def healthz():
-    logger.info("I'm healthy")
     return {}
 
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=config.cors_allow_origins,
-    allow_methods=["GET", "OPTIONS", "HEAD"],
+    allow_methods=["GET", "OPTIONS", "HEAD", "POST"],
     allow_headers=["*"],
 )
 
 app.include_router(vocabulary_router)
+app.include_router(telegram_router)

@@ -1,121 +1,105 @@
 # Vocabulary Teacher
 
-Vocabulary Teacher is a small vocabulary practice app with a FastAPI backend and a static Alpine.js frontend. The backend reads vocabulary from a Google Spreadsheet with a Google service account and exposes it through one endpoint. The frontend loads that endpoint, caches usable vocabulary in `localStorage` until midnight, and gives learners a simple German UI for category-based practice.
+Vocabulary Teacher is a vocabulary practice app with a FastAPI backend, a static Alpine.js frontend, and a Telegram bot for adding words to a Google Spreadsheet.
 
 ## Features
 
-- Organizes words by category so users can study one topic at a time or review everything together.
-- Lets users filter by source phrase.
-- Creates random practice sets from all words or from a selected category.
-- Lets users choose their translation language (Arabic, English) — persisted in `localStorage`.
-- Uses dynamic column headers: the spreadsheet can use any language or naming convention for columns.
-- Proactively refreshes vocabulary cache on a cron schedule via APScheduler.
-
-## How It Works
-
-- The backend reads one or more sheet tabs from a Google Spreadsheet.
-- Each sheet tab becomes one vocabulary category.
-- Vocabulary is served from a single `GET /vocabulary` endpoint.
-- The backend caches vocabulary in memory and refreshes it on a cron schedule (`CACHE_CRON_SCHEDULE`) via APScheduler.
-- On server startup, vocabulary is fetched immediately so the cache is warm.
-- The frontend caches non-empty API responses in `localStorage` until the next midnight.
-- Empty responses are not cached, so temporary source or parsing issues do not poison the browser cache.
-- The frontend stores the user's chosen translation language in `localStorage` separately.
+- **Web frontend** — Organizes words by category, random practice sets, filter by source phrase, choose translation language (Arabic/English).
+- **Telegram bot** — Send a German word to the bot and it translates it to English and Arabic, generates example sentences, and lets you confirm to add it to your Google Sheet.
+- **Dynamic columns** — The spreadsheet can use any naming convention for columns.
+- **Cache** — Vocabulary is cached in-memory on the server (refreshed via cron) and in `localStorage` on the frontend (until midnight).
 
 ## Project Shape
 
 ```text
-server/main.py                 FastAPI app, CORS, route lockdown, scheduler, /healthz
-server/config.py               Environment configuration
-server/routes/vocabulary.py    /vocabulary route and API error mapping
-server/services/vocabulary.py  Google Sheets fetching, caching, vocabulary shaping
-server/requirements.txt        Backend dependencies
-server/tests/                  Backend parser tests
-index.html                     Static German frontend
-index.js                       Frontend state, caching, filtering, shuffle logic, language selection
-privacy.html                   Privacy policy
+server/
+  main.py                 FastAPI app, CORS, route lockdown, scheduler
+  config.py               Environment configuration
+  requirements.txt        Backend dependencies
+  .env.example            Environment variable template
+  routes/
+    vocabulary.py         GET /vocabulary
+    telegram.py           POST /telegram/webhook
+  services/
+    vocabulary.py         Google Sheets read/write
+    llm.py                OpenRouter LLM translation & example generation
+    telegram_bot.py       Telegram bot logic & state management
+  tests/
+    test_vocabulary.py    Parser tests
+index.html                Static German frontend
+index.js                  Frontend state, caching, filtering, shuffle
+privacy.html              Privacy policy
 ```
 
-## Expected Google Spreadsheet
+## Prerequisites
 
-Create one sheet tab per category. The column range is configurable via `GOOGLE_SPREADSHEET_RANGE`. The **first row** must be a header row. Column names are detected dynamically:
+- Python 3.13+
+- A Google Spreadsheet with vocabulary data
+- A Telegram bot (create one via [@BotFather](https://t.me/botfather))
+- An [OpenRouter](https://openrouter.ai) API key
 
-Share the spreadsheet with the service account email address, just like sharing it with a normal Google user. Read access is enough.
+## Configuration
+
+Copy `server/.env.example` to `server/.env` and fill in the values:
+
+| Variable                      | Required | Description                                                       |
+| ----------------------------- | -------- | ----------------------------------------------------------------- |
+| `CORS_ALLOW_ORIGINS`          | No       | Comma-separated allowlist. Default includes `null` for local dev. |
+| `CACHE_CRON_SCHEDULE`         | Yes      | Crontab for vocabulary refresh (e.g. `0 * * * *` = every hour).   |
+| `TELEGRAM_BOT_TOKEN`          | Yes      | Token from BotFather.                                             |
+| `TELEGRAM_WEBHOOK_URL`        | Yes      | Public HTTPS URL pointing to `/telegram/webhook`.                 |
+| `GOOGLE_SPREADSHEET_ID`       | Yes      | The ID from the spreadsheet URL.                                  |
+| `GOOGLE_SPREADSHEET_RANGE`    | Yes      | Column range (e.g. `A:F`).                                        |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | Yes      | Full Google service account JSON key.                             |
+| `GOOGLE_SHEET_VOCABULARY`     | Yes      | Sheet tab name where the bot adds words (e.g. `Wortschatz`).      |
+| `OPENROUTER_API_KEY`          | Yes      | OpenRouter API key for LLM calls.                                 |
+| `OPENROUTER_MODEL`            | No       | Model to use (default: `google/gemini-2.5-flash`).                |
+| `GOOGLE_SHEET_NAMES`          | No       | Comma-separated sheet tabs to read. Empty = all tabs.             |
 
 ## Google Service Account Setup
 
 1. Create or choose a Google Cloud project.
-2. Enable the Google Sheets API for that project.
-3. Create a service account.
-4. Create a JSON key for the service account.
-5. Share the spreadsheet with the service account email address.
-6. Put the service account JSON in the backend environment as `GOOGLE_SERVICE_ACCOUNT_JSON`.
-
-## Configuration
-
-Create `server/.env` from `server/.env.example`:
-
-```text
-CORS_ALLOW_ORIGINS=http://localhost:8000,http://127.0.0.1:8000,null
-CACHE_CRON_SCHEDULE=0 * * * *
-GOOGLE_SPREADSHEET_ID=your-google-spreadsheet-id
-GOOGLE_SPREADSHEET_RANGE=A:D
-GOOGLE_SERVICE_ACCOUNT_JSON={"type":"service_account","project_id":"..."}
-# Optional: leave empty to read every sheet tab in the spreadsheet.
-GOOGLE_SHEET_NAMES=
-```
-
-| Variable                      | Required | Description                                                                |
-| ----------------------------- | -------- | -------------------------------------------------------------------------- |
-| `CORS_ALLOW_ORIGINS`          | No       | Comma-separated allowlist. Default includes `null` for local dev.          |
-| `CACHE_CRON_SCHEDULE`         | Yes      | Crontab expression for vocabulary refresh (e.g. `0 * * * *` = every hour). |
-| `GOOGLE_SPREADSHEET_ID`       | Yes      | The ID from the spreadsheet URL.                                           |
-| `GOOGLE_SPREADSHEET_RANGE`    | Yes      | Column range to read (e.g. `A:D` or `A:F`).                                |
-| `GOOGLE_SERVICE_ACCOUNT_JSON` | Yes      | Full JSON key. Never commit this.                                          |
-| `GOOGLE_SHEET_NAMES`          | No       | Comma-separated list of sheet tabs to read. Empty = read all tabs.         |
+2. Enable the Google Sheets API.
+3. Create a service account and a JSON key.
+4. Share the spreadsheet with the service account email (edit access required for the bot to write).
+5. Set `GOOGLE_SERVICE_ACCOUNT_JSON` in `.env` to the full JSON.
 
 ## Endpoints
 
-| Method         | Path          | Description                                           |
-| -------------- | ------------- | ----------------------------------------------------- |
-| `GET`          | `/vocabulary` | Returns all vocabulary grouped by sheet name.         |
-| `GET` / `HEAD` | `/healthz`    | Returns `{}` with status 200. Used for health checks. |
+| Method         | Path                | Description                                   |
+| -------------- | ------------------- | --------------------------------------------- |
+| `GET`          | `/vocabulary`       | Returns all vocabulary grouped by sheet name. |
+| `GET` / `HEAD` | `/healthz`          | Health check, returns `{}`.                   |
+| `POST`         | `/telegram/webhook` | Telegram bot updates (webhook).               |
 
 ## Running Locally
 
 ```powershell
 cd server
-```
-
-Create and activate a virtual environment:
-
-```powershell
 python -m venv venv
 .\venv\Scripts\activate
-```
-
-Install dependencies:
-
-```powershell
 pip install -r requirements.txt
-```
-
-Run the API from the `server` directory:
-
-```powershell
 uvicorn main:app --host 127.0.0.1 --port 5000 --reload
 ```
 
-Open `index.html` in a browser. The frontend calls:
+For the Telegram bot to work locally, you need a public HTTPS URL. Run [ngrok](https://ngrok.com):
 
-```text
-http://localhost:5000/vocabulary
+```powershell
+ngrok http 5000
 ```
+
+Then set `TELEGRAM_WEBHOOK_URL` to `https://your-ngrok-id.ngrok-free.app/telegram/webhook`.
+
+Open `index.html` in a browser or send `/start` to your Telegram bot.
 
 ## Tests
 
-Run the backend tests under `server` with:
-
 ```powershell
+cd server
 pytest
 ```
+
+## Security Notes
+
+- The `.env` file and `server/service-account.json` contain live credentials and are gitignored — never commit them.
+- The sheet tab specified in `GOOGLE_SHEET_VOCABULARY` must already exist in the spreadsheet. The bot will error out if it's missing.

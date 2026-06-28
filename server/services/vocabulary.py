@@ -9,7 +9,7 @@ from config import config
 
 logger = logging.getLogger(__name__)
 
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
 # Cached service instance to avoid rebuilding the HTTP transport
 # and re-parsing the discovery document on every request.
@@ -133,3 +133,83 @@ def get_vocabulary():
     if not _vocabulary:
         make_vocabulary()
     return _vocabulary
+
+
+def ensure_vocabulary_sheet(service, spreadsheet_id, sheet_name):
+    existing = get_sheet_names(service, spreadsheet_id)
+    if sheet_name not in existing:
+        raise RuntimeError(
+            f"Sheet tab '{sheet_name}' does not exist in the spreadsheet. "
+            f"Please create it manually with columns: German, English, Arabic, Example German, Example English, Example Arabic"
+        )
+
+
+def _get_sheet_id(service, spreadsheet_id, sheet_name):
+    try:
+        spreadsheet = (
+            service.spreadsheets()
+            .get(spreadsheetId=spreadsheet_id, fields="sheets.properties")
+            .execute()
+        )
+    except HttpError as error:
+        raise RuntimeError(
+            f"Failed to read spreadsheet metadata: {error.reason}"
+        ) from error
+    for sheet in spreadsheet.get("sheets", []):
+        props = sheet.get("properties", {})
+        if props.get("title") == sheet_name:
+            return props["sheetId"]
+    raise RuntimeError(f"Sheet tab '{sheet_name}' not found")
+
+
+def append_to_vocabulary_sheet(
+    word,
+    english,
+    arabic,
+    example_german,
+    example_english,
+    example_arabic,
+):
+    service = build_sheets_service()
+    spreadsheet_id = config.google_spreadsheet_id
+    sheet_name = config.google_sheet_vocabulary
+
+    ensure_vocabulary_sheet(service, spreadsheet_id, sheet_name)
+    sheet_id = _get_sheet_id(service, spreadsheet_id, sheet_name)
+
+    try:
+        service.spreadsheets().batchUpdate(
+            spreadsheetId=spreadsheet_id,
+            body={
+                "requests": [
+                    {
+                        "insertDimension": {
+                            "range": {
+                                "sheetId": sheet_id,
+                                "dimension": "ROWS",
+                                "startIndex": 1,
+                                "endIndex": 2,
+                            },
+                            "inheritFromBefore": False,
+                        }
+                    }
+                ]
+            },
+        ).execute()
+    except HttpError as error:
+        raise RuntimeError(f"Failed to insert row: {error.reason}") from error
+
+    values = [[word, english, arabic, example_german, example_english, example_arabic]]
+    try:
+        service.spreadsheets().values().update(
+            spreadsheetId=spreadsheet_id,
+            range=f"{quote_sheet_name(sheet_name)}!A2:F2",
+            valueInputOption="USER_ENTERED",
+            body={"values": values},
+        ).execute()
+    except HttpError as error:
+        raise RuntimeError(
+            f"Failed to write row to sheet '{sheet_name}': {error.reason}"
+        ) from error
+
+    logger.info("Inserted word '%s' at top of sheet '%s'", word, sheet_name)
