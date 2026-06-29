@@ -1,4 +1,4 @@
-const VOCABULARY_ENDPOINT = 'http://localhost:5000/vocabulary'
+const VOCABULARY_ENDPOINT = 'https://vocabulary-teacher.onrender.com/vocabulary'
 const VOCABULARY_CACHE_STORAGE_KEY = 'vocabularyCache'
 const LANGUAGE_CACHE_STORAGE_KEY = 'targetLanguage'
 const ALL_CATEGORIES = '__all__'

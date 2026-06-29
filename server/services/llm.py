@@ -24,7 +24,9 @@ def _parse_json_response(text: str) -> dict:
     else:
         if isinstance(result, dict):
             return result
-        raise ValueError(f"Expected a JSON object, got {type(result).__name__}: {text[:300]}")
+        raise ValueError(
+            f"Expected a JSON object, got {type(result).__name__}: {text[:300]}"
+        )
     match = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", text, re.DOTALL)
     if match:
         try:
@@ -52,9 +54,10 @@ def _build_prompt(word: str) -> str:
         "fix capitalization and spelling. "
         "Provide the corrected German word, the English translation and Arabic translation "
         "(in Arabic script, including articles where applicable). "
-        "If there are multiple synonyms, separate them with commas (e.g. 'to allow, permit'). "
-        "Also provide a natural example sentence in German using the corrected word, "
-        "and its English and Arabic translations.\n\n"
+        "If there are multiple synonyms, separate them with commas (e.g. 'to allow, permit'), "
+        "and allow only 2 max synonyms. "
+        "Also provide a short natural example sentence in German using the corrected word, "
+        "and its English and Arabic translations using the translated words.\n\n"
         "Return ONLY valid JSON with this exact structure:\n"
         "{\n"
         '  "corrected_german": "der, die or das Word (corrected form with article)",\n'
@@ -62,7 +65,7 @@ def _build_prompt(word: str) -> str:
         '  "arabic": "arabic translation in Arabic script (with article for nouns)",\n'
         '  "example_german": "German example sentence using the corrected word",\n'
         '  "example_english": "English example sentence",\n'
-        '  "example_arabic": "Arabic example sentence in Arabic script"\n'
+        '  "example_arabic": "Arabic example sentence in Arabic script only"\n'
         "}"
     )
 

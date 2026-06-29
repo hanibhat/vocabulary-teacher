@@ -20,6 +20,8 @@ class Config:
     cache_cron_schedule_env = "CACHE_CRON_SCHEDULE"
     telegram_bot_token_env = "TELEGRAM_BOT_TOKEN"
     telegram_webhook_url_env = "TELEGRAM_WEBHOOK_URL"
+    telegram_webhook_secret_token_env = "TELEGRAM_WEBHOOK_SECRET_TOKEN"
+    telegram_admin_chat_id_env = "TELEGRAM_ADMIN_CHAT_ID"
     openrouter_api_key_env = "OPENROUTER_API_KEY"
     openrouter_model_env = "OPENROUTER_MODEL"
     default_cors_allow_origins = [
@@ -57,12 +59,21 @@ class Config:
         return self.get_required_env(self.telegram_webhook_url_env)
 
     @property
+    def telegram_webhook_secret_token(self):
+        return self.get_required_env(self.telegram_webhook_secret_token_env)
+
+    @property
     def openrouter_api_key(self):
         return self.get_required_env(self.openrouter_api_key_env)
 
     @property
     def openrouter_model(self):
         return os.getenv(self.openrouter_model_env, "google/gemini-2.5-flash")
+
+    @property
+    def telegram_admin_chat_id(self):
+        value = os.getenv(self.telegram_admin_chat_id_env)
+        return int(value) if value else None
 
     @property
     def cors_allow_origins(self):

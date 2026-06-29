@@ -10,7 +10,7 @@ from services.vocabulary import append_to_vocabulary_sheet
 logger = logging.getLogger(__name__)
 
 _bot: Bot | None = None
-_user_data: dict[int, dict] = {}
+_user_data: dict[tuple[int, int], dict] = {}
 
 
 def get_bot() -> Bot:
@@ -20,10 +20,19 @@ def get_bot() -> Bot:
     return _bot
 
 
-async def set_webhook():
+async def set_telegram_webhook():
     bot = get_bot()
-    await bot.set_webhook(url=config.telegram_webhook_url)
+    await bot.set_webhook(
+        url=config.telegram_webhook_url,
+        secret_token=config.telegram_webhook_secret_token,
+    )
     logger.info("Telegram webhook set to %s", config.telegram_webhook_url)
+    admin_chat_id = config.telegram_admin_chat_id
+    if admin_chat_id:
+        await bot.send_message(
+            chat_id=admin_chat_id,
+            text=f"✅ Bot connected — webhook set to {config.telegram_webhook_url}",
+        )
 
 
 def _build_preview_text(word: str, data: dict) -> str:
@@ -73,11 +82,11 @@ async def handle_word(chat_id: int, word: str):
     bot = get_bot()
     try:
         msg = await bot.send_message(
-            chat_id=chat_id, text="⏳ Translating and generating examples..."
+            chat_id=chat_id, text=f'⏳ Translating "{word}"...'
         )
         data = await asyncio.to_thread(translate_and_generate, word)
         corrected_word = data.get("corrected_german", word)
-        _user_data[chat_id] = {
+        _user_data[(chat_id, msg.message_id)] = {
             "word": word,
             "corrected_word": corrected_word,
             "data": data,
@@ -95,30 +104,36 @@ async def handle_word(chat_id: int, word: str):
         logger.exception("Failed to process word: %s", word)
         await bot.send_message(
             chat_id=chat_id,
-            text=f"❌ Sorry, something went wrong: {e}\n\nPlease try again.",
+            text=f'❌ Sorry, something went wrong when processing "{word}": {e}',
         )
 
 
 async def handle_callback(chat_id: int, message_id: int, callback_data: str):
     bot = get_bot()
-    user_state = _user_data.get(chat_id)
+    user_state = _user_data.get((chat_id, message_id))
 
-    if callback_data == "confirm":
+    if callback_data == "cancel":
+        await bot.edit_message_text(
+            chat_id=chat_id,
+            message_id=message_id,
+            text="✕ Cancelled.",
+        )
+        _user_data.pop((chat_id, message_id), None)
+
+    elif callback_data == "confirm":
         if not user_state:
-            await bot.send_message(
-                chat_id=chat_id, text="❌ No pending word found. Send a new word!"
-            )
             return
 
+        _user_data.pop((chat_id, message_id), None)
+        word = user_state.get("corrected_word", user_state["word"])
         try:
-            await bot.edit_message_text(
+            msg = await bot.send_message(
                 chat_id=chat_id,
-                message_id=message_id,
-                text=f"Adding to your vocabulary sheet...",
+                text=f'Adding "{word}" to your vocabulary sheet...',
             )
             await asyncio.to_thread(
                 append_to_vocabulary_sheet,
-                word=user_state.get("corrected_word", user_state["word"]),
+                word=word,
                 english=user_state["data"]["english"],
                 arabic=user_state["data"]["arabic"],
                 example_german=user_state["data"]["example_german"],
@@ -127,38 +142,32 @@ async def handle_callback(chat_id: int, message_id: int, callback_data: str):
             )
             await bot.edit_message_text(
                 chat_id=chat_id,
-                message_id=message_id,
-                text=f"✅ Saved!\n\nAdded *{user_state.get('corrected_word', user_state['word'])}* to your vocabulary sheet.",
+                message_id=msg.message_id,
+                text=f'✅ Saved!\n\nAdded "{word}" to your vocabulary sheet.',
             )
-            _user_data.pop(chat_id, None)
+            _user_data.pop((chat_id, message_id), None)
         except Exception as e:
             logger.exception("Failed to append to sheet")
             await bot.send_message(
                 chat_id=chat_id,
-                text=f"❌ Failed to save to Google Sheet: {e}\n\nTry again or send a new word.",
+                text=f'❌ Failed to save "{word}": {e}',
             )
 
     elif callback_data == "retry":
         if not user_state:
-            await bot.send_message(
-                chat_id=chat_id, text="❌ No pending word found. Send a new word!"
-            )
             return
 
+        word = user_state["word"]
         try:
             await bot.edit_message_text(
                 chat_id=chat_id,
                 message_id=message_id,
-                text="⏳ Retrying translation and generation...",
+                text=f'⏳ Retrying translation of "{word}"...',
             )
-
-            data = await asyncio.to_thread(translate_and_generate, user_state["word"])
+            data = await asyncio.to_thread(translate_and_generate, word)
             user_state["data"] = data
-            user_state["corrected_word"] = data.get(
-                "corrected_german", user_state["word"]
-            )
-
-            text = _build_preview_text(user_state["word"], data)
+            user_state["corrected_word"] = data.get("corrected_german", word)
+            text = _build_preview_text(word, data)
             keyboard = _build_keyboard()
             await bot.edit_message_text(
                 chat_id=chat_id,
@@ -170,13 +179,5 @@ async def handle_callback(chat_id: int, message_id: int, callback_data: str):
             logger.exception("Retry failed")
             await bot.send_message(
                 chat_id=chat_id,
-                text=f"❌ Retry failed: {e}",
+                text=f'❌ Retry failed for "{word}": {e}',
             )
-
-    elif callback_data == "cancel":
-        _user_data.pop(chat_id, None)
-        await bot.edit_message_text(
-            chat_id=chat_id,
-            message_id=message_id,
-            text="✕ Cancelled. Send a new word whenever you want!",
-        )

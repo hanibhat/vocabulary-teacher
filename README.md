@@ -2,6 +2,8 @@
 
 Vocabulary Teacher is a vocabulary practice app with a FastAPI backend, a static Alpine.js frontend, and a Telegram bot for adding words to a Google Spreadsheet.
 
+> **For AI agents:** See [`AGENTS.md`](AGENTS.md) for architecture, conventions, and development workflows.
+
 ## Features
 
 - **Web frontend** — Organizes words by category, random practice sets, filter by source phrase, choose translation language (Arabic/English).
@@ -74,29 +76,56 @@ Copy `server/.env.example` to `server/.env` and fill in the values:
 
 ## Running Locally
 
-```powershell
+### One command (cross-platform)
+
+```bash
+python run.py
+```
+
+This will create the virtual environment, install dependencies, and start the server on `http://127.0.0.1:5000` with auto-reload.
+
+Options:
+
+```bash
+python run.py --port 8080       # Change port
+python run.py --no-reload        # Disable auto-reload
+python run.py -- --root-path /api  # Pass extra uvicorn args after --
+```
+
+### Manual (any OS)
+
+```bash
 cd server
 python -m venv venv
-.\venv\Scripts\activate
+source venv/bin/activate      # Linux/macOS
+# .\venv\Scripts\activate     # Windows
 pip install -r requirements.txt
 uvicorn main:app --host 127.0.0.1 --port 5000 --reload
 ```
 
-For the Telegram bot to work locally, you need a public HTTPS URL. Run [ngrok](https://ngrok.com):
+### Telegram Bot (local testing)
 
-```powershell
+Run [ngrok](https://ngrok.com) alongside the server:
+
+```bash
 ngrok http 5000
 ```
 
 Then set `TELEGRAM_WEBHOOK_URL` to `https://your-ngrok-id.ngrok-free.app/telegram/webhook`.
 
-Open `index.html` in a browser or send `/start` to your Telegram bot.
+Open `index.html` in a browser or send `/start` to your bot on Telegram.
 
 ## Tests
 
-```powershell
+```bash
 cd server
-pytest
+python -m pytest
+```
+
+Or from the project root (if the venv was created by `run.py`):
+
+```bash
+python -m pytest server/tests
 ```
 
 ## Security Notes

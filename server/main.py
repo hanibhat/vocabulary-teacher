@@ -11,7 +11,7 @@ from config import config
 from routes.vocabulary import router as vocabulary_router
 from routes.telegram import router as telegram_router
 from services.vocabulary import make_vocabulary
-from services.telegram_bot import set_webhook
+from services.telegram_bot import set_telegram_webhook
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +26,15 @@ scheduler = AsyncIOScheduler()
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
-    make_vocabulary()
-    await set_webhook()
+    try:
+        await set_telegram_webhook()
+    except Exception:
+        logger.exception("Failed to set Telegram webhook on startup")
+
+    try:
+        make_vocabulary()
+    except Exception:
+        logger.exception("Failed to build vocabulary cache on startup")
     scheduler.add_job(
         make_vocabulary,
         trigger=CronTrigger.from_crontab(config.cache_cron_schedule),
