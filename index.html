@@ -14,9 +14,13 @@
       }
 
       .flip-inner {
-        position: relative;
+        display: grid;
         transition: transform 0.5s ease-in-out;
         transform-style: preserve-3d;
+      }
+
+      .flip-inner > * {
+        grid-area: 1 / 1 / 2 / 2;
       }
 
       .flip-inner.flipped {
@@ -26,8 +30,6 @@
       .flip-front,
       .flip-back {
         backface-visibility: hidden;
-        position: absolute;
-        inset: 0;
         border-radius: inherit;
       }
 
